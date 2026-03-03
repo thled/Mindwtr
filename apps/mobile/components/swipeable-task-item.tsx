@@ -49,7 +49,7 @@ export function SwipeableTaskItem({
     isMultiSelected = false,
     onToggleSelect,
     isHighlighted = false,
-    showFocusToggle = true,
+    showFocusToggle = false,
     hideStatusBadge = false,
     disableSwipe = false,
 }: SwipeableTaskItemProps) {

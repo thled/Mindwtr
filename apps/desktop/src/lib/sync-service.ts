@@ -2420,7 +2420,11 @@ export class SyncService {
 
         const result = await resultPromise;
         try {
-            removeNetworkListener?.();
+            const releaseNetworkListener = removeNetworkListener as (() => void) | null;
+            removeNetworkListener = null;
+            if (typeof releaseNetworkListener === 'function') {
+                releaseNetworkListener();
+            }
         } catch (error) {
             logSyncWarning('Failed to unsubscribe network listener after sync', error);
         }

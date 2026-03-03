@@ -315,7 +315,7 @@ function DailyReviewFlow({ onClose }: { onClose: () => void }) {
                                 <Text style={[styles.emptyText, { color: tc.secondaryText }]}>{t('agenda.focusHint')}</Text>
                             </View>
                         ) : (
-                            renderTaskList(focusCandidates.slice(0, 8), { showFocusToggle: true, hideStatusBadge: true })
+                            renderTaskList(focusCandidates.slice(0, 8), { hideStatusBadge: true })
                         )}
                     </View>
                 );

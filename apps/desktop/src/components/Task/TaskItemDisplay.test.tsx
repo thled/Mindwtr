@@ -32,7 +32,7 @@ describe('TaskItemDisplay', () => {
                 }}
                 visibleAttachments={[]}
                 recurrenceRule=""
-                recurrenceStrategy="fixed"
+                recurrenceStrategy="strict"
                 prioritiesEnabled={false}
                 timeEstimatesEnabled={false}
                 isStagnant={false}
