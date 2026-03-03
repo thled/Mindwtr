@@ -49,7 +49,7 @@ export function SwipeableTaskItem({
     isMultiSelected = false,
     onToggleSelect,
     isHighlighted = false,
-    showFocusToggle = false,
+    showFocusToggle = true,
     hideStatusBadge = false,
     disableSwipe = false,
 }: SwipeableTaskItemProps) {
@@ -62,6 +62,10 @@ export function SwipeableTaskItem({
     const settings = useTaskStore((state) => state.settings);
     const focusedCount = useTaskStore((state) => state.getDerivedState().focusedCount);
     const timeEstimatesEnabled = settings?.features?.timeEstimates === true;
+    const canShowFocusToggle = showFocusToggle
+        && task.status !== 'done'
+        && task.status !== 'reference'
+        && task.status !== 'archived';
 
     const toggleFocus = () => {
         if (selectionMode) return;
@@ -315,7 +319,7 @@ export function SwipeableTaskItem({
                     shadowRadius: 6,
                     elevation: 2,
                 },
-                showFocusToggle && task.isFocusedToday && !selectionMode && { borderWidth: 2, borderColor: tc.tint },
+                canShowFocusToggle && task.isFocusedToday && !selectionMode && { borderWidth: 2, borderColor: tc.tint },
                 isHighlighted && !selectionMode && { borderWidth: 2, borderColor: tc.tint },
                 selectionMode && { borderWidth: 2, borderColor: isMultiSelected ? tc.tint : tc.border }
             ]}
@@ -346,13 +350,13 @@ export function SwipeableTaskItem({
                                 style={[
                                     styles.taskTitle,
                                     { color: tc.text, writingDirection: textDirection, textAlign },
-                                    showFocusToggle && styles.taskTitleFlex,
+                                    canShowFocusToggle && styles.taskTitleFlex,
                                 ]}
                                 numberOfLines={2}
                             >
                                 {task.title}
                             </Text>
-                            {showFocusToggle && !selectionMode && (
+                            {canShowFocusToggle && !selectionMode && (
                                 <Pressable
                                     onPress={(event) => {
                                         event.stopPropagation();

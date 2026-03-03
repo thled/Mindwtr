@@ -11,6 +11,7 @@ export const useTaskItemStoreState = () =>
             sections: state.sections,
             areas: state.areas,
             settings: state.settings,
+            focusedCount: state.getDerivedState().focusedCount,
             duplicateTask: state.duplicateTask,
             resetTaskChecklist: state.resetTaskChecklist,
             restoreTask: state.restoreTask,

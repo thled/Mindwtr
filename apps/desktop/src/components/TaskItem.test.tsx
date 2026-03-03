@@ -134,6 +134,29 @@ describe('TaskItem', () => {
         expect(getByRole('button', { name: /skip/i })).toBeInTheDocument();
     });
 
+    it('shows today focus toggle outside focus view for active tasks', () => {
+        const { getByRole } = render(
+            <LanguageProvider>
+                <TaskItem task={mockTask} />
+            </LanguageProvider>
+        );
+        expect(getByRole('button', { name: /add.*focus/i })).toBeInTheDocument();
+    });
+
+    it('does not show today focus toggle for done tasks', () => {
+        const doneTask: Task = {
+            ...mockTask,
+            id: 'done-task',
+            status: 'done',
+        };
+        const { queryByRole } = render(
+            <LanguageProvider>
+                <TaskItem task={doneTask} />
+            </LanguageProvider>
+        );
+        expect(queryByRole('button', { name: /focus/i })).toBeNull();
+    });
+
     it('keeps details expanded after remount for the same task id', () => {
         const checklistTask: Task = {
             ...mockTask,

@@ -92,6 +92,7 @@ export const TaskItem = memo(function TaskItem({
         sections,
         areas,
         settings,
+        focusedCount,
         duplicateTask,
         resetTaskChecklist,
         restoreTask,
@@ -204,6 +205,32 @@ export const TaskItem = memo(function TaskItem({
     const recurrenceStrategy = getRecurrenceStrategyValue(task.recurrence);
     const isStagnant = (task.pushCount ?? 0) > 3;
     const effectiveReadOnly = readOnly || task.status === 'done';
+    const defaultFocusToggle = useMemo(() => {
+        if (effectiveReadOnly) return undefined;
+        if (task.status === 'done' || task.status === 'reference' || task.status === 'archived') return undefined;
+        const isFocused = Boolean(task.isFocusedToday);
+        const canToggle = isFocused || focusedCount < 3;
+        const removeLabelRaw = t('agenda.removeFromFocus');
+        const addLabelRaw = t('agenda.addToFocus');
+        const maxLabelRaw = t('agenda.maxFocusItems');
+        const removeLabel = removeLabelRaw === 'agenda.removeFromFocus' ? 'Remove from focus' : removeLabelRaw;
+        const addLabel = addLabelRaw === 'agenda.addToFocus' ? 'Add to focus' : addLabelRaw;
+        const maxLabel = maxLabelRaw === 'agenda.maxFocusItems' ? 'Max 3 focus items' : maxLabelRaw;
+        return {
+            isFocused,
+            canToggle,
+            onToggle: () => {
+                if (isFocused) {
+                    updateTask(task.id, { isFocusedToday: false });
+                } else if (focusedCount < 3) {
+                    updateTask(task.id, { isFocusedToday: true });
+                }
+            },
+            title: isFocused ? removeLabel : (canToggle ? addLabel : maxLabel),
+            ariaLabel: isFocused ? removeLabel : addLabel,
+        };
+    }, [effectiveReadOnly, focusedCount, task.id, task.isFocusedToday, task.status, t, updateTask]);
+    const effectiveFocusToggle = focusToggle ?? defaultFocusToggle;
     const handleToggleChecklistItem = useCallback((index: number) => {
         if (effectiveReadOnly) return;
         const checklist = task.checklist || [];
@@ -911,7 +938,7 @@ export const TaskItem = memo(function TaskItem({
                                 onOpenProject: project ? handleOpenProject : undefined,
                                 openAttachment,
                                 onToggleChecklistItem: handleToggleChecklistItem,
-                                focusToggle,
+                                focusToggle: effectiveFocusToggle,
                             }}
                             visibleAttachments={visibleAttachments}
                             recurrenceRule={recurrenceRule}
