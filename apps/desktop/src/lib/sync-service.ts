@@ -1921,6 +1921,9 @@ export class SyncService {
         let backend: SyncBackend = 'off';
         let syncUrl: string | undefined;
         let localSnapshotChangeAt = 0;
+        let networkWentOffline = false;
+        let removeNetworkListener: (() => void) | null = null;
+        const requestAbortController = new AbortController();
 
         SyncService.updateSyncStatus({
             inFlight: true,
@@ -1936,6 +1939,40 @@ export class SyncService {
         };
 
         const runSync = async (): Promise<{ success: boolean; stats?: MergeStats; error?: string }> => {
+            const createFetchWithAbort = (baseFetch: typeof fetch): typeof fetch => {
+                return (input, init) => {
+                    const baseSignal = requestAbortController.signal;
+                    const existingSignal = init?.signal;
+                    if (!existingSignal) {
+                        return baseFetch(input, { ...(init || {}), signal: baseSignal });
+                    }
+                    if (typeof AbortSignal !== 'undefined' && typeof AbortSignal.any === 'function') {
+                        return baseFetch(input, { ...(init || {}), signal: AbortSignal.any([baseSignal, existingSignal]) });
+                    }
+                    const mergedController = new AbortController();
+                    const abortMerged = () => mergedController.abort();
+                    if (baseSignal.aborted || existingSignal.aborted) {
+                        mergedController.abort();
+                    } else {
+                        baseSignal.addEventListener('abort', abortMerged, { once: true });
+                        existingSignal.addEventListener('abort', abortMerged, { once: true });
+                    }
+                    return baseFetch(input, { ...(init || {}), signal: mergedController.signal }).finally(() => {
+                        baseSignal.removeEventListener('abort', abortMerged);
+                        existingSignal.removeEventListener('abort', abortMerged);
+                    });
+                };
+            };
+            const ensureNetworkStillAvailable = () => {
+                if (backend !== 'cloud' && backend !== 'webdav') return;
+                if (
+                    networkWentOffline
+                    || (typeof navigator !== 'undefined' && navigator.onLine === false)
+                ) {
+                    requestAbortController.abort();
+                    throw new Error('Sync paused: offline state detected');
+                }
+            };
             // 1. Flush pending writes so disk reflects the latest state
             setStep('flush');
             await flushPendingSave();
@@ -1946,6 +1983,17 @@ export class SyncService {
             if (backend === 'off') {
                 return { success: true };
             }
+            if ((backend === 'cloud' || backend === 'webdav') && typeof window !== 'undefined') {
+                const handleOffline = () => {
+                    networkWentOffline = true;
+                    requestAbortController.abort();
+                };
+                window.addEventListener('offline', handleOffline);
+                removeNetworkListener = () => {
+                    window.removeEventListener('offline', handleOffline);
+                    removeNetworkListener = null;
+                };
+            }
             if (isTauriRuntimeEnv()) {
                 setStep('snapshot');
                 try {
@@ -1954,11 +2002,7 @@ export class SyncService {
                     logSyncWarning('Failed to create pre-sync snapshot', error);
                 }
             }
-            if (
-                (backend === 'cloud' || backend === 'webdav')
-                && typeof navigator !== 'undefined'
-                && navigator.onLine === false
-            ) {
+            if ((backend === 'cloud' || backend === 'webdav') && typeof navigator !== 'undefined' && navigator.onLine === false) {
                 throw new Error('Offline: network connection is unavailable for remote sync.');
             }
             const webdavConfig = backend === 'webdav' ? await SyncService.getWebDavConfig() : null;
@@ -2015,6 +2059,7 @@ export class SyncService {
                     const localData = await readLocalDataForSync();
                     let preMutated = false;
                     if (backend === 'webdav' && webdavConfig?.url) {
+                        ensureNetworkStillAvailable();
                         const baseUrl = getBaseSyncUrl(webdavConfig.url);
                         const syncedData = await syncAttachments(localData, webdavConfig, baseUrl);
                         preMutated = syncedData !== null;
@@ -2024,9 +2069,11 @@ export class SyncService {
                     } else if (backend === 'file' && fileBaseDir) {
                         preMutated = await syncFileAttachments(localData, fileBaseDir);
                     } else if (backend === 'cloud' && cloudProvider === 'selfhosted' && cloudConfig?.url) {
+                        ensureNetworkStillAvailable();
                         const baseUrl = getCloudBaseUrl(cloudConfig.url);
                         preMutated = await syncCloudAttachments(localData, cloudConfig, baseUrl);
                     } else if (backend === 'cloud' && cloudProvider === 'dropbox') {
+                        ensureNetworkStillAvailable();
                         preMutated = await syncDropboxAttachments(localData, resolveDropboxAccessToken);
                     }
                     if (preMutated) {
@@ -2051,6 +2098,7 @@ export class SyncService {
                     return data;
                 },
                 readRemote: async () => {
+                    ensureNetworkStillAvailable();
                     if (backend === 'webdav') {
                         try {
                             if (isTauriRuntimeEnv()) {
@@ -2071,7 +2119,7 @@ export class SyncService {
                             }
                             const normalizedUrl = normalizeWebdavUrl(webdavConfig.url);
                             syncUrl = normalizedUrl;
-                            const fetcher = await getTauriFetch();
+                            const fetcher = createFetchWithAbort((await getTauriFetch()) ?? fetch);
                             const data = await withRetry(
                                 () => webdavGetJson<AppData>(normalizedUrl, {
                                     username: webdavConfig.username,
@@ -2100,7 +2148,7 @@ export class SyncService {
                             }
                             const normalizedUrl = normalizeCloudUrl(cloudConfig.url);
                             syncUrl = normalizedUrl;
-                            const fetcher = await getTauriFetch();
+                            const fetcher = createFetchWithAbort((await getTauriFetch()) ?? fetch);
                             const data = await cloudGetJson<AppData>(normalizedUrl, { token: cloudConfig.token, fetcher });
                             remoteDataForCompare = data ?? null;
                             return data;
@@ -2109,9 +2157,9 @@ export class SyncService {
                             throw new Error('Dropbox app key is not configured');
                         }
                         syncUrl = 'dropbox:///Apps/Mindwtr/data.json';
-                        const fetcher = await getTauriFetch();
+                        const fetcher = createFetchWithAbort((await getTauriFetch()) ?? fetch);
                         const remote = await runDropboxWithRetry((token) =>
-                            downloadDropboxAppData(token, fetcher ?? fetch)
+                            downloadDropboxAppData(token, fetcher)
                         );
                         dropboxDataRev = remote.rev;
                         remoteDataForCompare = remote.data ?? null;
@@ -2134,6 +2182,7 @@ export class SyncService {
                 },
                 writeRemote: async (data) => {
                     ensureLocalSnapshotFresh();
+                    ensureNetworkStillAvailable();
                     assertNoPendingAttachmentUploads(data);
                     const sanitized = sanitizeAppDataForRemote(data);
                     const remoteSanitized = remoteDataForCompare
@@ -2154,7 +2203,7 @@ export class SyncService {
                         }
                         const { url, username, password } = await SyncService.getWebDavConfig();
                         const normalizedUrl = normalizeWebdavUrl(url);
-                        const fetcher = await getTauriFetch();
+                        const fetcher = createFetchWithAbort((await getTauriFetch()) ?? fetch);
                         if (webdavRemoteCorrupted) {
                             logSyncInfo('Repairing corrupted WebDAV data.json with current merged data');
                         }
@@ -2167,7 +2216,7 @@ export class SyncService {
                         if (cloudProvider === 'selfhosted') {
                             const { url, token } = await SyncService.getCloudConfig();
                             const normalizedUrl = normalizeCloudUrl(url);
-                            const fetcher = await getTauriFetch();
+                            const fetcher = createFetchWithAbort((await getTauriFetch()) ?? fetch);
                             await cloudPutJson(normalizedUrl, sanitized, { token, fetcher });
                             remoteDataForCompare = sanitized;
                             return;
@@ -2175,10 +2224,10 @@ export class SyncService {
                         if (!dropboxAppKey) {
                             throw new Error('Dropbox app key is not configured');
                         }
-                        const fetcher = await getTauriFetch();
+                        const fetcher = createFetchWithAbort((await getTauriFetch()) ?? fetch);
                         try {
                             const uploaded = await runDropboxWithRetry((token) =>
-                                uploadDropboxAppData(token, sanitized, dropboxDataRev, fetcher ?? fetch)
+                                uploadDropboxAppData(token, sanitized, dropboxDataRev, fetcher)
                             );
                             dropboxDataRev = uploaded.rev;
                             remoteDataForCompare = sanitized;
@@ -2246,6 +2295,7 @@ export class SyncService {
                 try {
                     ensureLocalSnapshotFresh();
                     if (backend === 'webdav') {
+                        ensureNetworkStillAvailable();
                         const config = await SyncService.getWebDavConfig();
                         const baseUrl = config.url ? getBaseSyncUrl(config.url) : '';
                         if (baseUrl) {
@@ -2266,6 +2316,7 @@ export class SyncService {
                             }
                         }
                     } else if (backend === 'cloud') {
+                        ensureNetworkStillAvailable();
                         if (cloudProvider === 'selfhosted') {
                             const config = cloudConfig ?? await SyncService.getCloudConfig();
                             const baseUrl = config.url ? getCloudBaseUrl(config.url) : '';
@@ -2299,6 +2350,7 @@ export class SyncService {
             if (isTauriRuntimeEnv() && shouldRunAttachmentCleanup(mergedData.settings.attachments?.lastCleanupAt, CLEANUP_INTERVAL_MS)) {
                 setStep('attachments_cleanup');
                 ensureLocalSnapshotFresh();
+                ensureNetworkStillAvailable();
                 mergedData = await cleanupOrphanedAttachments(mergedData, backend);
                 await tauriInvoke('save_data', { data: mergedData });
             }
@@ -2367,6 +2419,11 @@ export class SyncService {
         });
 
         const result = await resultPromise;
+        try {
+            removeNetworkListener?.();
+        } catch (error) {
+            logSyncWarning('Failed to unsubscribe network listener after sync', error);
+        }
         SyncService.syncInFlight = null;
         SyncService.updateSyncStatus({
             inFlight: false,
