@@ -75,6 +75,15 @@ const getDebouncedSaveCaller = (): string | undefined => {
     }
 };
 
+const toSaveErrorMessage = (error: unknown): string => {
+    const detail = error instanceof Error ? error.message : String(error ?? '');
+    const trimmed = detail.trim();
+    if (!trimmed) return 'Failed to save data';
+    return trimmed.toLowerCase().startsWith('failed to save data')
+        ? trimmed
+        : `Failed to save data: ${trimmed}`;
+};
+
 /**
  * Save data with write coalescing.
  * Captures a snapshot immediately and serializes writes to avoid lost updates.
@@ -96,8 +105,9 @@ const debouncedSave = (data: AppData, onError?: (msg: string) => void) => {
     });
     void flushPendingSave().catch((error) => {
         logError('Failed to flush pending save', { scope: 'store', category: 'storage', error });
+        const message = toSaveErrorMessage(error);
         try {
-            useTaskStore.getState().setError('Failed to save data');
+            useTaskStore.getState().setError(message);
         } catch {
             // Ignore if store is not initialized yet
         }
@@ -158,11 +168,12 @@ export const flushPendingSave = async (): Promise<void> => {
             .catch((e) => {
                 markCoreStartupPhase('core.flush_pending_save.storage_save:error', { targetVersion });
                 logError('Failed to flush pending save', { scope: 'store', category: 'storage', error: e });
+                const message = toSaveErrorMessage(e);
                 if (onErrorCallbacks.length > 0) {
-                    onErrorCallbacks.forEach((callback) => callback('Failed to save data'));
+                    onErrorCallbacks.forEach((callback) => callback(message));
                 }
                 try {
-                    useTaskStore.getState().setError('Failed to save data');
+                    useTaskStore.getState().setError(message);
                 } catch {
                     // Ignore if store is not initialized yet
                 }

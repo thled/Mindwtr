@@ -12,7 +12,8 @@ const invokeWithError = async <T>(
         return await invoke<T>(command as any, args as any);
     } catch (error) {
         reportError(`Failed to ${action}`, error);
-        throw new Error(`Failed to ${action}.`);
+        const detail = error instanceof Error ? error.message : String(error);
+        throw new Error(`Failed to ${action}: ${detail}`);
     }
 };
 

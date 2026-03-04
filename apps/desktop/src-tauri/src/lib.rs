@@ -49,6 +49,9 @@ const SNAPSHOT_DIR_NAME: &str = "snapshots";
 const SNAPSHOT_RETENTION_MAX_COUNT: usize = 5;
 const SNAPSHOT_RETENTION_MAX_AGE_SECS: u64 = 7 * 24 * 60 * 60;
 const SNAPSHOT_RETENTION_RECENT_COUNT: usize = 2;
+const SQLITE_BUSY_TIMEOUT_MS: u64 = 5_000;
+const STORAGE_RETRY_ATTEMPTS: usize = 4;
+const STORAGE_RETRY_BASE_DELAY_MS: u64 = 120;
 const KEYRING_WEB_DAV_PASSWORD: &str = "webdav_password";
 const KEYRING_CLOUD_TOKEN: &str = "cloud_token";
 const KEYRING_DROPBOX_TOKENS: &str = "dropbox_tokens";
@@ -1092,6 +1095,8 @@ fn open_sqlite(app: &tauri::AppHandle) -> Result<Connection, String> {
         fs::create_dir_all(parent).map_err(|e| e.to_string())?;
     }
     let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
+    conn.busy_timeout(Duration::from_millis(SQLITE_BUSY_TIMEOUT_MS))
+        .map_err(|e| e.to_string())?;
     conn.execute_batch(SQLITE_SCHEMA).map_err(|e| e.to_string())?;
     ensure_tasks_purged_at_column(&conn)?;
     ensure_tasks_order_column(&conn)?;
@@ -1103,6 +1108,62 @@ fn open_sqlite(app: &tauri::AppHandle) -> Result<Connection, String> {
     ensure_fts_triggers(&conn)?;
     ensure_fts_populated(&conn, false)?;
     Ok(conn)
+}
+
+fn is_retryable_storage_error(message: &str) -> bool {
+    let normalized = message.to_ascii_lowercase();
+    normalized.contains("database is locked")
+        || normalized.contains("database is busy")
+        || normalized.contains("resource busy")
+        || normalized.contains("temporarily unavailable")
+}
+
+fn write_data_json_file(data_path: &Path, data: &Value) -> Result<(), String> {
+    if let Some(parent) = data_path.parent() {
+        fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+    }
+    let backup_path = data_path.with_extension("json.bak");
+    if data_path.exists() {
+        let _ = fs::copy(data_path, &backup_path);
+    }
+    let tmp_path = data_path.with_extension("json.tmp");
+    let content = serde_json::to_string_pretty(data).map_err(|e| e.to_string())?;
+    {
+        let mut file = File::create(&tmp_path).map_err(|e| e.to_string())?;
+        file.write_all(content.as_bytes()).map_err(|e| e.to_string())?;
+        file.sync_all().map_err(|e| e.to_string())?;
+    }
+    if cfg!(windows) && data_path.exists() {
+        fs::remove_file(data_path).map_err(|e| e.to_string())?;
+    }
+    fs::rename(&tmp_path, data_path).map_err(|e| e.to_string())?;
+    Ok(())
+}
+
+fn persist_data_snapshot(app: &tauri::AppHandle, data: &Value) -> Result<(), String> {
+    ensure_data_file(app)?;
+    let mut conn = open_sqlite(app)?;
+    migrate_json_to_sqlite(&mut conn, data)?;
+    write_data_json_file(&get_data_path(app), data)?;
+    Ok(())
+}
+
+fn persist_data_snapshot_with_retries(app: &tauri::AppHandle, data: &Value) -> Result<(), String> {
+    for attempt in 0..STORAGE_RETRY_ATTEMPTS {
+        match persist_data_snapshot(app, data) {
+            Ok(()) => return Ok(()),
+            Err(error) => {
+                let can_retry = is_retryable_storage_error(&error) && attempt + 1 < STORAGE_RETRY_ATTEMPTS;
+                if can_retry {
+                    let delay = STORAGE_RETRY_BASE_DELAY_MS * (attempt as u64 + 1);
+                    std::thread::sleep(Duration::from_millis(delay));
+                    continue;
+                }
+                return Err(error);
+            }
+        }
+    }
+    Err("Failed to save data".to_string())
 }
 
 fn has_column(conn: &Connection, table: &str, column: &str) -> Result<bool, String> {
@@ -2700,30 +2761,7 @@ async fn read_data_json(app: tauri::AppHandle) -> Result<Value, String> {
 #[tauri::command]
 async fn save_data(app: tauri::AppHandle, data: Value) -> Result<bool, String> {
     tauri::async_runtime::spawn_blocking(move || {
-        ensure_data_file(&app)?;
-        let mut conn = open_sqlite(&app)?;
-        migrate_json_to_sqlite(&mut conn, &data)?;
-
-        // Keep JSON backup updated for safety/rollbacks
-        let data_path = get_data_path(&app);
-        if let Some(parent) = data_path.parent() {
-            fs::create_dir_all(parent).map_err(|e| e.to_string())?;
-        }
-        let backup_path = data_path.with_extension("json.bak");
-        if data_path.exists() {
-            let _ = fs::copy(&data_path, &backup_path);
-        }
-        let tmp_path = data_path.with_extension("json.tmp");
-        let content = serde_json::to_string_pretty(&data).map_err(|e| e.to_string())?;
-        {
-            let mut file = File::create(&tmp_path).map_err(|e| e.to_string())?;
-            file.write_all(content.as_bytes()).map_err(|e| e.to_string())?;
-            file.sync_all().map_err(|e| e.to_string())?;
-        }
-        if cfg!(windows) && data_path.exists() {
-            fs::remove_file(&data_path).map_err(|e| e.to_string())?;
-        }
-        fs::rename(&tmp_path, &data_path).map_err(|e| e.to_string())?;
+        persist_data_snapshot_with_retries(&app, &data)?;
         Ok(true)
     })
     .await
@@ -2930,25 +2968,7 @@ fn restore_data_snapshot(app: tauri::AppHandle, snapshot_file_name: String) -> R
     }
 
     let data = read_json_with_retries(&snapshot_path, 2)?;
-    let mut conn = open_sqlite(&app)?;
-    migrate_json_to_sqlite(&mut conn, &data)?;
-
-    let data_path = get_data_path(&app);
-    let backup_path = data_path.with_extension("json.bak");
-    if data_path.exists() {
-        let _ = fs::copy(&data_path, &backup_path);
-    }
-    let tmp_path = data_path.with_extension("json.tmp");
-    let content = serde_json::to_string_pretty(&data).map_err(|e| e.to_string())?;
-    {
-        let mut file = File::create(&tmp_path).map_err(|e| e.to_string())?;
-        file.write_all(content.as_bytes()).map_err(|e| e.to_string())?;
-        file.sync_all().map_err(|e| e.to_string())?;
-    }
-    if cfg!(windows) && data_path.exists() {
-        fs::remove_file(&data_path).map_err(|e| e.to_string())?;
-    }
-    fs::rename(&tmp_path, &data_path).map_err(|e| e.to_string())?;
+    persist_data_snapshot_with_retries(&app, &data)?;
     Ok(true)
 }
 
