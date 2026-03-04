@@ -1,6 +1,7 @@
 import { ChevronsUpDown, List } from 'lucide-react';
 import { cn } from '../../../lib/utils';
 import type { TaskSortBy } from '@mindwtr/core';
+import type { NextGroupBy } from './next-grouping';
 
 type ListHeaderProps = {
     title: string;
@@ -12,6 +13,9 @@ type ListHeaderProps = {
     filterSummarySuffix: string;
     sortBy: TaskSortBy;
     onChangeSortBy: (value: TaskSortBy) => void;
+    showGroupBy?: boolean;
+    groupBy?: NextGroupBy;
+    onChangeGroupBy?: (value: NextGroupBy) => void;
     selectionMode: boolean;
     onToggleSelection: () => void;
     showListDetails: boolean;
@@ -31,6 +35,9 @@ export function ListHeader({
     filterSummarySuffix,
     sortBy,
     onChangeSortBy,
+    showGroupBy = false,
+    groupBy = 'none',
+    onChangeGroupBy,
     selectionMode,
     onToggleSelection,
     showListDetails,
@@ -52,6 +59,22 @@ export function ListHeader({
             const value = t('list.densityComfortable');
             return value === 'list.densityComfortable' ? 'Comfortable' : value;
         })();
+    const groupLabel = (() => {
+        const value = t('list.groupBy');
+        return value === 'list.groupBy' ? 'Group' : value;
+    })();
+    const noGroupingLabel = (() => {
+        const value = t('list.groupByNone');
+        return value === 'list.groupByNone' ? 'No grouping' : value;
+    })();
+    const groupByContextLabel = (() => {
+        const value = t('list.groupByContext');
+        return value === 'list.groupByContext' ? 'Context' : value;
+    })();
+    const groupByAreaLabel = (() => {
+        const value = t('list.groupByArea');
+        return value === 'list.groupByArea' ? 'Area' : value;
+    })();
 
     return (
         <header className="flex items-center justify-between">
@@ -80,6 +103,18 @@ export function ListHeader({
                     <option value="created">{t('sort.created')}</option>
                     <option value="created-desc">{t('sort.created-desc')}</option>
                 </select>
+                {showGroupBy && onChangeGroupBy && (
+                    <select
+                        value={groupBy}
+                        onChange={(e) => onChangeGroupBy(e.target.value as NextGroupBy)}
+                        aria-label={groupLabel}
+                        className="text-xs bg-muted/50 text-foreground border border-border rounded px-2 py-1 hover:bg-muted focus:outline-none focus:ring-2 focus:ring-primary/40"
+                    >
+                        <option value="none">{noGroupingLabel}</option>
+                        <option value="context">{groupByContextLabel}</option>
+                        <option value="area">{groupByAreaLabel}</option>
+                    </select>
+                )}
                 <button
                     onClick={onToggleSelection}
                     className={cn(

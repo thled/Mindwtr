@@ -24,6 +24,7 @@ import { reportError } from '../../lib/report-error';
 import { AREA_FILTER_ALL, AREA_FILTER_NONE, projectMatchesAreaFilter, resolveAreaFilter, taskMatchesAreaFilter } from '../../lib/area-filter';
 import { cn } from '../../lib/utils';
 import { sortDoneTasksForListView } from './list/done-sort';
+import { groupTasksByArea, groupTasksByContext, type NextGroupBy, type TaskGroup } from './list/next-grouping';
 
 
 interface ListViewProps {
@@ -73,6 +74,7 @@ export function ListView({ title, statusFilter }: ListViewProps) {
     const resetListFilters = useUiStore((state) => state.resetListFilters);
     const showToast = useUiStore((state) => state.showToast);
     const showListDetails = useUiStore((state) => state.listOptions.showDetails);
+    const nextGroupBy = useUiStore((state) => state.listOptions.nextGroupBy);
     const setListOptions = useUiStore((state) => state.setListOptions);
     const setProjectView = useUiStore((state) => state.setProjectView);
     const [baseTasks, setBaseTasks] = useState<Task[]>(() => (statusFilter === 'archived' ? [] : tasks));
@@ -360,48 +362,34 @@ export function ListView({ title, statusFilter }: ListViewProps) {
         const value = t(key);
         return value === key ? fallback : value;
     }, [t]);
+    const activeNextGroupBy: NextGroupBy = statusFilter === 'next' ? nextGroupBy : 'none';
     const isReferenceAreaGrouping = statusFilter === 'reference';
+    const isNextGrouping = statusFilter === 'next' && activeNextGroupBy !== 'none';
     const referenceAreaGroups = useMemo(() => {
-        if (!isReferenceAreaGrouping) return [] as Array<{ id: string; title: string; tasks: Task[]; muted?: boolean }>;
-        const activeAreas = [...areas]
-            .filter((area) => !area.deletedAt)
-            .sort((a, b) => (a.order - b.order) || a.name.localeCompare(b.name));
-        const validAreaIds = new Set(activeAreas.map((area) => area.id));
-        const grouped = new Map<string, Task[]>();
-        const generalTasks: Task[] = [];
-
-        filteredTasks.forEach((task) => {
-            const projectAreaId = task.projectId ? projectMap.get(task.projectId)?.areaId : undefined;
-            const resolvedAreaId = task.areaId || projectAreaId;
-            if (resolvedAreaId && validAreaIds.has(resolvedAreaId)) {
-                const items = grouped.get(resolvedAreaId) ?? [];
-                items.push(task);
-                grouped.set(resolvedAreaId, items);
-            } else {
-                generalTasks.push(task);
-            }
+        if (!isReferenceAreaGrouping) return [] as TaskGroup[];
+        return groupTasksByArea({
+            areas,
+            tasks: filteredTasks,
+            projectMap,
+            generalLabel: resolveText('settings.general', 'General'),
         });
-
-        const groups: Array<{ id: string; title: string; tasks: Task[]; muted?: boolean }> = [];
-        if (generalTasks.length > 0) {
-            groups.push({
-                id: 'general',
-                title: resolveText('settings.general', 'General'),
-                tasks: generalTasks,
-                muted: true,
+    }, [areas, filteredTasks, isReferenceAreaGrouping, projectMap, resolveText]);
+    const nextGroups = useMemo(() => {
+        if (!isNextGrouping) return [] as TaskGroup[];
+        if (activeNextGroupBy === 'area') {
+            return groupTasksByArea({
+                areas,
+                tasks: filteredTasks,
+                projectMap,
+                generalLabel: resolveText('settings.general', 'General'),
             });
         }
-        activeAreas.forEach((area) => {
-            const tasksForArea = grouped.get(area.id) ?? [];
-            if (tasksForArea.length === 0) return;
-            groups.push({
-                id: area.id,
-                title: area.name,
-                tasks: tasksForArea,
-            });
+        return groupTasksByContext({
+            tasks: filteredTasks,
+            noContextLabel: resolveText('contexts.none', 'No context'),
         });
-        return groups;
-    }, [areas, filteredTasks, isReferenceAreaGrouping, projectMap, t]);
+    }, [activeNextGroupBy, areas, filteredTasks, isNextGrouping, projectMap, resolveText]);
+    const groupedTasks = isReferenceAreaGrouping ? referenceAreaGroups : nextGroups;
     const taskIndexById = useMemo(() => {
         const map = new Map<string, number>();
         filteredTasks.forEach((task, index) => map.set(task.id, index));
@@ -429,7 +417,7 @@ export function ListView({ title, statusFilter }: ListViewProps) {
             });
     }, [showToast, t, updateProject]);
 
-    const shouldVirtualize = !isReferenceAreaGrouping && filteredTasks.length > VIRTUALIZATION_THRESHOLD;
+    const shouldVirtualize = !isReferenceAreaGrouping && !isNextGrouping && filteredTasks.length > VIRTUALIZATION_THRESHOLD;
     const rowVirtualizer = useVirtualizer({
         count: shouldVirtualize ? filteredTasks.length : 0,
         getScrollElement: () => listScrollRef.current,
@@ -450,6 +438,7 @@ export function ListView({ title, statusFilter }: ListViewProps) {
             selectedTimeEstimates.join('|'),
             selectedWaitingPerson,
             resolvedAreaFilter,
+            activeNextGroupBy,
         ].join('::');
         if (lastFilterKeyRef.current !== filterKey) {
             lastFilterKeyRef.current = filterKey;
@@ -485,6 +474,7 @@ export function ListView({ title, statusFilter }: ListViewProps) {
         selectedWaitingPerson,
         prioritiesEnabled,
         timeEstimatesEnabled,
+        activeNextGroupBy,
         exitSelectionMode,
         filteredTasks,
         selectedIndex,
@@ -831,6 +821,9 @@ export function ListView({ title, statusFilter }: ListViewProps) {
                         filterSummarySuffix={filterSummarySuffix}
                         sortBy={sortBy}
                         onChangeSortBy={(value) => updateSettings({ taskSortBy: value })}
+                        showGroupBy={isNextView}
+                        groupBy={activeNextGroupBy}
+                        onChangeGroupBy={(value) => setListOptions({ nextGroupBy: value })}
                         selectionMode={selectionMode}
                         onToggleSelection={() => {
                             if (selectionMode) exitSelectionMode();
@@ -1101,15 +1094,20 @@ export function ListView({ title, statusFilter }: ListViewProps) {
                             );
                         })}
                     </div>
-                ) : isReferenceAreaGrouping ? (
+                ) : isReferenceAreaGrouping || isNextGrouping ? (
                     <div className="space-y-2">
-                        {referenceAreaGroups.map((group) => (
+                        {groupedTasks.map((group) => (
                             <div key={group.id} className="rounded-md border border-border/40 bg-card/30">
                                 <div className={cn(
                                     'px-3 py-2 text-xs font-semibold uppercase tracking-wide border-b border-border/30',
                                     group.muted ? 'text-muted-foreground' : 'text-foreground/90',
                                 )}>
-                                    <span>{group.title}</span>
+                                    <span className="inline-flex items-center gap-1.5">
+                                        {group.dotColor && (
+                                            <span className="h-2 w-2 rounded-full" style={{ backgroundColor: group.dotColor }} aria-hidden="true" />
+                                        )}
+                                        <span>{group.title}</span>
+                                    </span>
                                     <span className="ml-2 text-muted-foreground">{group.tasks.length}</span>
                                 </div>
                                 <div className="divide-y divide-border/30">

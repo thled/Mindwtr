@@ -2,6 +2,7 @@ import { createWithEqualityFn } from 'zustand/traditional';
 import type { TaskPriority, TimeEstimate } from '@mindwtr/core';
 
 const toastTimeouts = new Map<string, number>();
+type ListNextGroupBy = 'none' | 'context' | 'area';
 
 interface UiState {
     isFocusMode: boolean;
@@ -30,6 +31,7 @@ interface UiState {
     resetListFilters: () => void;
     listOptions: {
         showDetails: boolean;
+        nextGroupBy: ListNextGroupBy;
     };
     setListOptions: (partial: Partial<UiState['listOptions']>) => void;
     editingTaskId: string | null;
@@ -89,6 +91,7 @@ export const useUiStore = createWithEqualityFn<UiState>()((set) => ({
         })),
     listOptions: {
         showDetails: false,
+        nextGroupBy: 'none',
     },
     setListOptions: (partial) =>
         set((state) => ({ listOptions: { ...state.listOptions, ...partial } })),

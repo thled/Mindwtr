@@ -5,6 +5,7 @@ import type { Area, Attachment, Project, Task, TaskStatus, RecurrenceRule, Recur
 import { DEFAULT_AREA_COLOR, getChecklistProgress, getTaskAgeLabel, getTaskStaleness, getTaskUrgency, hasTimeComponent, safeFormatDate, resolveTaskTextDirection } from '@mindwtr/core';
 import { cn } from '../../lib/utils';
 import { getAttachmentDisplayTitle } from '../../lib/attachment-utils';
+import { getContextColor } from '../../lib/context-color';
 import { MetadataBadge } from '../ui/MetadataBadge';
 import { AttachmentProgressIndicator } from '../AttachmentProgressIndicator';
 import type { KeyboardEvent, MouseEvent, ReactNode } from 'react';
@@ -288,7 +289,7 @@ export function TaskItemDisplay({
             {task.contexts?.length > 0 && (
                 <div className="flex items-center gap-2">
                     {task.contexts.map((ctx) => (
-                        <MetadataBadge key={ctx} variant="context" label={ctx} />
+                        <MetadataBadge key={ctx} variant="context" label={ctx} dotColor={getContextColor(ctx)} />
                     ))}
                 </div>
             )}
