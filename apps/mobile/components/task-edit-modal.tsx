@@ -31,6 +31,8 @@ import {
     validateAttachmentForUpload,
     parseQuickAdd,
     DEFAULT_PROJECT_COLOR,
+    getLocalizedWeekdayButtons,
+    getLocalizedWeekdayLabels,
 } from '@mindwtr/core';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -60,8 +62,6 @@ import {
 import {
     MAX_SUGGESTED_TAGS,
     WEEKDAY_ORDER,
-    WEEKDAY_BUTTONS,
-    MONTHLY_WEEKDAY_LABELS,
     getRecurrenceRuleValue,
     getRecurrenceStrategyValue,
     buildRecurrenceValue,
@@ -98,6 +98,14 @@ interface TaskEditModalProps {
 }
 
 type TaskEditTab = 'task' | 'view';
+
+const getOrdinalTranslationKey = (value: '1' | '2' | '3' | '4' | '-1'): 'first' | 'second' | 'third' | 'fourth' | 'last' => {
+    if (value === '-1') return 'last';
+    if (value === '1') return 'first';
+    if (value === '2') return 'second';
+    if (value === '3') return 'third';
+    return 'fourth';
+};
 
 function TaskEditModalInner({ visible, task, onClose, onSave, onFocusMode, defaultTab }: TaskEditModalProps) {
     const {
@@ -163,6 +171,14 @@ function TaskEditModalInner({ visible, task, onClose, onSave, onFocusMode, defau
     const [linkInput, setLinkInput] = useState('');
     const [linkInputTouched, setLinkInputTouched] = useState(false);
     const [customWeekdays, setCustomWeekdays] = useState<RecurrenceWeekday[]>([]);
+    const recurrenceWeekdayButtons = useMemo(
+        () => getLocalizedWeekdayButtons(language, 'narrow'),
+        [language]
+    );
+    const recurrenceWeekdayLabels = useMemo(
+        () => getLocalizedWeekdayLabels(language, 'long'),
+        [language]
+    );
     const [isAIWorking, setIsAIWorking] = useState(false);
     const [aiModal, setAiModal] = useState<{ title: string; message?: string; actions: AIResponseAction[] } | null>(null);
     const aiEnabled = settings.ai?.enabled === true;
@@ -2052,7 +2068,7 @@ function TaskEditModalInner({ visible, task, onClose, onSave, onFocusMode, defau
                         </View>
                         {recurrenceRuleValue === 'weekly' && (
                             <View style={[styles.weekdayRow, { marginTop: 10 }]}>
-                                {WEEKDAY_BUTTONS.map((day) => {
+                                {recurrenceWeekdayButtons.map((day) => {
                                     const active = customWeekdays.includes(day.key);
                                     return (
                                         <TouchableOpacity
@@ -2680,16 +2696,16 @@ function TaskEditModalInner({ visible, task, onClose, onSave, onFocusMode, defau
                                     >
                                         <Text style={getStatusTextStyle(customMode === 'nth')}>
                                             {t('recurrence.onNthWeekday')
-                                                .replace('{ordinal}', t(`recurrence.ordinal.${customOrdinal === '-1' ? 'last' : customOrdinal === '1' ? 'first' : customOrdinal === '2' ? 'second' : customOrdinal === '3' ? 'third' : 'fourth'}`))
-                                                .replace('{weekday}', MONTHLY_WEEKDAY_LABELS[customWeekday] ?? customWeekday)}
+                                                .replace('{ordinal}', t(`recurrence.ordinal.${getOrdinalTranslationKey(customOrdinal)}`))
+                                                .replace('{weekday}', recurrenceWeekdayLabels[customWeekday] ?? customWeekday)}
                                         </Text>
                                     </TouchableOpacity>
                                 </View>
                                 {customMode === 'nth' && (
                                     <>
                                         <View style={[styles.weekdayRow, { marginTop: 10, flexWrap: 'wrap' }]}>
-                                        {(['1', '2', '3', '4', '-1'] as const).map((value) => {
-                                            const label = value === '-1' ? 'Last' : `${value}${value === '1' ? 'st' : value === '2' ? 'nd' : value === '3' ? 'rd' : 'th'}`;
+                                            {(['1', '2', '3', '4', '-1'] as const).map((value) => {
+                                                const label = t(`recurrence.ordinal.${getOrdinalTranslationKey(value)}`);
                                                 return (
                                                     <TouchableOpacity
                                                         key={value}
@@ -2702,13 +2718,13 @@ function TaskEditModalInner({ visible, task, onClose, onSave, onFocusMode, defau
                                                         ]}
                                                         onPress={() => setCustomOrdinal(value)}
                                                     >
-                                                    <Text style={[styles.weekdayButtonText, { color: tc.text }]}>{label}</Text>
-                                                </TouchableOpacity>
-                                            );
-                                        })}
+                                                        <Text style={[styles.weekdayButtonText, { color: tc.text }]}>{label}</Text>
+                                                    </TouchableOpacity>
+                                                );
+                                            })}
                                         </View>
                                         <View style={[styles.weekdayRow, { marginTop: 10 }]}>
-                                            {WEEKDAY_BUTTONS.map((day) => {
+                                            {recurrenceWeekdayButtons.map((day) => {
                                                 const active = customWeekday === day.key;
                                                 return (
                                                     <TouchableOpacity

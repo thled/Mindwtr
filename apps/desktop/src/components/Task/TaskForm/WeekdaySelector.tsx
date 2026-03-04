@@ -1,15 +1,9 @@
-import { buildRRuleString, parseRRuleString, type RecurrenceWeekday } from '@mindwtr/core';
+import { useMemo } from 'react';
+import { buildRRuleString, getLocalizedWeekdayLabels, parseRRuleString, type RecurrenceWeekday } from '@mindwtr/core';
 import { cn } from '../../../lib/utils';
+import { useLanguage } from '../../../contexts/language-context';
 
-const WEEKDAYS: Array<{ id: RecurrenceWeekday; label: string }> = [
-    { id: 'MO', label: 'Mon' },
-    { id: 'TU', label: 'Tue' },
-    { id: 'WE', label: 'Wed' },
-    { id: 'TH', label: 'Thu' },
-    { id: 'FR', label: 'Fri' },
-    { id: 'SA', label: 'Sat' },
-    { id: 'SU', label: 'Sun' },
-];
+const WEEKDAYS: RecurrenceWeekday[] = ['MO', 'TU', 'WE', 'TH', 'FR', 'SA', 'SU'];
 
 type WeekdaySelectorProps = {
     value?: string;
@@ -18,9 +12,17 @@ type WeekdaySelectorProps = {
 };
 
 export function WeekdaySelector({ value, onChange, className }: WeekdaySelectorProps) {
+    const { language } = useLanguage();
+    const labels = useMemo(() => {
+        const localizedLabels = getLocalizedWeekdayLabels(language, 'short');
+        return WEEKDAYS.map((id) => ({
+            id,
+            label: localizedLabels[id] ?? id,
+        }));
+    }, [language]);
     const parsed = value ? parseRRuleString(value) : {};
     const selected = new Set<RecurrenceWeekday>(
-        (parsed.byDay || []).filter((day) => WEEKDAYS.some((weekday) => weekday.id === day)) as RecurrenceWeekday[]
+        (parsed.byDay || []).filter((day) => WEEKDAYS.includes(day as RecurrenceWeekday)) as RecurrenceWeekday[]
     );
 
     const handleToggle = (day: RecurrenceWeekday) => {
@@ -30,13 +32,13 @@ export function WeekdaySelector({ value, onChange, className }: WeekdaySelectorP
         } else {
             next.add(day);
         }
-        const ordered = WEEKDAYS.map((d) => d.id).filter((d) => next.has(d));
+        const ordered = WEEKDAYS.filter((d) => next.has(d));
         onChange(buildRRuleString('weekly', ordered));
     };
 
     return (
         <div className={cn("flex flex-wrap gap-1", className)}>
-            {WEEKDAYS.map((day) => {
+            {labels.map((day) => {
                 const isActive = selected.has(day.id);
                 return (
                     <button

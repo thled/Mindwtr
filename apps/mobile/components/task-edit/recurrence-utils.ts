@@ -6,13 +6,11 @@ import {
     buildRRuleString,
     parseRRuleString,
     WEEKDAY_ORDER,
-    WEEKDAY_BUTTONS,
-    MONTHLY_WEEKDAY_LABELS,
 } from '@mindwtr/core';
 
 export const MAX_SUGGESTED_TAGS = 8;
 export const MAX_VISIBLE_SUGGESTIONS = 4;
-export { WEEKDAY_ORDER, WEEKDAY_BUTTONS, MONTHLY_WEEKDAY_LABELS };
+export { WEEKDAY_ORDER };
 
 export const getRecurrenceRuleValue = (recurrence: Task['recurrence']): RecurrenceRule | '' => {
     if (!recurrence) return '';

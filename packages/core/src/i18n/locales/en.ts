@@ -237,6 +237,7 @@ export const en: Record<string, string> = {
         'recurrence.custom': 'Custom…',
         'recurrence.customTitle': 'Custom recurrence',
         'recurrence.repeatEvery': 'Repeat every',
+        'recurrence.repeatOn': 'Repeat on',
         'recurrence.dayUnit': 'day(s)',
         'recurrence.monthUnit': 'month(s)',
         'recurrence.onLabel': 'On',

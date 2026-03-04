@@ -4,6 +4,7 @@ import {
     Task,
     TaskStatus,
     TaskEditorFieldId,
+    getLocalizedWeekdayLabels,
     type Recurrence,
     parseRRuleString,
     Project,
@@ -20,7 +21,7 @@ import { TaskItemDisplay } from './Task/TaskItemDisplay';
 import { TaskItemFieldRenderer } from './Task/TaskItemFieldRenderer';
 import { TaskItemRecurrenceModal } from './Task/TaskItemRecurrenceModal';
 import { AttachmentModals } from './Task/AttachmentModals';
-import { WEEKDAY_FULL_LABELS, WEEKDAY_ORDER } from './Task/recurrence-constants';
+import { WEEKDAY_ORDER } from './Task/recurrence-constants';
 import {
     getRecurrenceRuleValue,
     getRecurrenceRRuleValue,
@@ -119,6 +120,10 @@ export const TaskItem = memo(function TaskItem({
         [setProjectView]
     );
     const { t, language } = useLanguage();
+    const recurrenceWeekdayLabels = useMemo(
+        () => getLocalizedWeekdayLabels(language, 'long'),
+        [language]
+    );
     const [isEditing, setIsEditing] = useState(false);
     const [autoFocusTitle, setAutoFocusTitle] = useState(false);
     const modalEditorRef = useRef<HTMLDivElement | null>(null);
@@ -1019,7 +1024,7 @@ export const TaskItem = memo(function TaskItem({
                 <TaskItemRecurrenceModal
                     t={t}
                     weekdayOrder={WEEKDAY_ORDER}
-                    weekdayLabels={WEEKDAY_FULL_LABELS}
+                    weekdayLabels={recurrenceWeekdayLabels}
                     customInterval={customInterval}
                     customMode={customMode}
                     customOrdinal={customOrdinal}

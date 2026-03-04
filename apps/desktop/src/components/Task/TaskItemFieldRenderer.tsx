@@ -486,7 +486,7 @@ export function TaskItemFieldRenderer({
                     )}
                     {editRecurrence === 'weekly' && (
                         <div className="pt-1">
-                            <span className="text-[10px] text-muted-foreground">Repeat on</span>
+                            <span className="text-[10px] text-muted-foreground">{t('recurrence.repeatOn')}</span>
                             <WeekdaySelector
                                 value={editRecurrenceRRule || buildRRuleString('weekly')}
                                 onChange={(rrule) => setEditRecurrenceRRule(rrule)}
@@ -496,7 +496,7 @@ export function TaskItemFieldRenderer({
                     )}
                     {editRecurrence === 'monthly' && (
                         <div className="pt-1 space-y-2">
-                            <span className="text-[10px] text-muted-foreground">Repeat on</span>
+                            <span className="text-[10px] text-muted-foreground">{t('recurrence.repeatOn')}</span>
                             <div className="flex flex-wrap gap-2">
                                 <button
                                     type="button"
