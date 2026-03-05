@@ -67,7 +67,7 @@ export function Layout({ children, currentView, onViewChange }: LayoutProps) {
     const compactSyncLabel = syncStatus.inFlight
         ? tOrFallback('settings.syncing', 'Syncing...')
         : lastSyncAt
-            ? `Synced ${formatCompactSyncTime(lastSyncAt)}`
+            ? `${tOrFallback('settings.lastSync', 'Last sync')}: ${formatCompactSyncTime(lastSyncAt)}`
             : tOrFallback('settings.lastSyncNever', 'Never');
     const dismissLabel = t('common.dismiss');
     const dismissText = dismissLabel && dismissLabel !== 'common.dismiss' ? dismissLabel : 'Dismiss';
