@@ -126,4 +126,30 @@ describe('search', () => {
         const results = filterTasksBySearch(tasks, projects, 'project:work');
         expect(results).toHaveLength(1);
     });
+
+    it('does not build project lookup when query has no project terms', () => {
+        const nowIso = new Date('2025-01-01T00:00:00Z').toISOString();
+        const tasks: Task[] = [
+            {
+                id: 't1',
+                title: 'Call mom',
+                status: 'inbox',
+                tags: [],
+                contexts: [],
+                createdAt: nowIso,
+                updatedAt: nowIso,
+            },
+        ];
+        const projects = new Proxy([] as Project[], {
+            get(target, property, receiver) {
+                if (property === Symbol.iterator) {
+                    throw new Error('projects should not be iterated without project search terms');
+                }
+                return Reflect.get(target, property, receiver);
+            },
+        });
+
+        const results = filterTasksBySearch(tasks, projects, 'status:inbox');
+        expect(results).toHaveLength(1);
+    });
 });
