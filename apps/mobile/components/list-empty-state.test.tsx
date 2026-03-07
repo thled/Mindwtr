@@ -6,8 +6,10 @@ import { ListEmptyState } from './list-empty-state';
 
 vi.mock('react-native', () => ({
   StyleSheet: { create: (styles: any) => styles },
-  View: (props: any) => React.createElement('div', props, props.children),
-  Text: (props: any) => React.createElement('span', props, props.children),
+  View: ({ accessible, accessibilityLabel, accessibilityRole, accessibilityLiveRegion, ...props }: any) =>
+    React.createElement('div', props, props.children),
+  Text: ({ accessibilityRole, accessibilityLiveRegion, ...props }: any) =>
+    React.createElement('span', props, props.children),
 }));
 
 describe('ListEmptyState', () => {

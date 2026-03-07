@@ -95,10 +95,13 @@ export function TaskEditProjectPicker({
             transparent
             animationType="fade"
             onRequestClose={onClose}
+            accessibilityViewIsModal
         >
             <View style={styles.overlay}>
                 <View style={[styles.modalCard, { backgroundColor: tc.cardBg, borderColor: tc.border }]}>
-                    <Text style={[styles.modalTitle, { color: tc.text }]}>{t('taskEdit.projectLabel')}</Text>
+                    <Text style={[styles.modalTitle, { color: tc.text }]} accessibilityRole="header">
+                        {t('taskEdit.projectLabel')}
+                    </Text>
                     <TextInput
                         value={projectQuery}
                         onChangeText={setProjectQuery}
@@ -110,9 +113,16 @@ export function TaskEditProjectPicker({
                         returnKeyType="done"
                         blurOnSubmit
                         onSubmitEditing={handleCreateProject}
+                        accessibilityLabel={t('taskEdit.projectLabel')}
+                        accessibilityHint={t('common.search')}
                     />
                     {!hasExactProjectMatch && projectQuery.trim() && (
-                        <Pressable onPress={handleCreateProject} style={styles.pickerItem}>
+                        <Pressable
+                            onPress={handleCreateProject}
+                            style={styles.pickerItem}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${t('projects.create')}: ${projectQuery.trim()}`}
+                        >
                             <Text style={[styles.pickerItemText, { color: tc.tint }]}>
                                 + {t('projects.create')} &quot;{projectQuery.trim()}&quot;
                             </Text>
@@ -128,6 +138,8 @@ export function TaskEditProjectPicker({
                                 onClose();
                             }}
                             style={styles.pickerItem}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('taskEdit.noProjectOption')}
                         >
                             <Text style={[styles.pickerItemText, { color: tc.text }]}>{t('taskEdit.noProjectOption')}</Text>
                         </Pressable>
@@ -139,20 +151,31 @@ export function TaskEditProjectPicker({
                                     onClose();
                                 }}
                                 style={styles.pickerItem}
+                                accessibilityRole="button"
+                                accessibilityLabel={project.title}
                             >
                                 <Text style={[styles.pickerItemText, { color: tc.text }]}>{project.title}</Text>
                             </Pressable>
                         ))}
                         {filteredProjects.length === 0 && (
                             <View style={styles.pickerItem}>
-                                <Text style={[styles.pickerItemText, { color: tc.secondaryText }]}>
+                                <Text
+                                    style={[styles.pickerItemText, { color: tc.secondaryText }]}
+                                    accessibilityRole="text"
+                                    accessibilityLiveRegion="polite"
+                                >
                                     {normalizedProjectQuery ? (noMatchesLabel ?? t('common.noMatches')) : (emptyLabel ?? noMatchesLabel ?? t('common.noMatches'))}
                                 </Text>
                             </View>
                         )}
                     </ScrollView>
                     <View style={styles.modalButtons}>
-                        <TouchableOpacity onPress={onClose} style={styles.modalButton}>
+                        <TouchableOpacity
+                            onPress={onClose}
+                            style={styles.modalButton}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('common.cancel')}
+                        >
                             <Text style={[styles.modalButtonText, { color: tc.secondaryText }]}>{t('common.cancel')}</Text>
                         </TouchableOpacity>
                     </View>

@@ -86,10 +86,13 @@ export function TaskEditSectionPicker({
             transparent
             animationType="fade"
             onRequestClose={onClose}
+            accessibilityViewIsModal
         >
             <View style={styles.overlay}>
                 <View style={[styles.modalCard, { backgroundColor: tc.cardBg, borderColor: tc.border }]}>
-                    <Text style={[styles.modalTitle, { color: tc.text }]}>{t('taskEdit.sectionLabel')}</Text>
+                    <Text style={[styles.modalTitle, { color: tc.text }]} accessibilityRole="header">
+                        {t('taskEdit.sectionLabel')}
+                    </Text>
                     <TextInput
                         value={sectionQuery}
                         onChangeText={setSectionQuery}
@@ -101,9 +104,16 @@ export function TaskEditSectionPicker({
                         returnKeyType="done"
                         blurOnSubmit
                         onSubmitEditing={handleCreateSection}
+                        accessibilityLabel={t('taskEdit.sectionLabel')}
+                        accessibilityHint={t('common.search')}
                     />
                     {!hasExactMatch && sectionQuery.trim() && projectId && (
-                        <Pressable onPress={handleCreateSection} style={styles.pickerItem}>
+                        <Pressable
+                            onPress={handleCreateSection}
+                            style={styles.pickerItem}
+                            accessibilityRole="button"
+                            accessibilityLabel={`${t('projects.create')}: ${sectionQuery.trim()}`}
+                        >
                             <Text style={[styles.pickerItemText, { color: tc.tint }]}>
                                 + {t('projects.create')} &quot;{sectionQuery.trim()}&quot;
                             </Text>
@@ -119,6 +129,8 @@ export function TaskEditSectionPicker({
                                 onClose();
                             }}
                             style={styles.pickerItem}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('taskEdit.noSectionOption')}
                         >
                             <Text style={[styles.pickerItemText, { color: tc.text }]}>{t('taskEdit.noSectionOption')}</Text>
                         </Pressable>
@@ -130,13 +142,20 @@ export function TaskEditSectionPicker({
                                     onClose();
                                 }}
                                 style={styles.pickerItem}
+                                accessibilityRole="button"
+                                accessibilityLabel={section.title}
                             >
                                 <Text style={[styles.pickerItemText, { color: tc.text }]}>{section.title}</Text>
                             </Pressable>
                         ))}
                     </ScrollView>
                     <View style={styles.modalButtons}>
-                        <TouchableOpacity onPress={onClose} style={styles.modalButton}>
+                        <TouchableOpacity
+                            onPress={onClose}
+                            style={styles.modalButton}
+                            accessibilityRole="button"
+                            accessibilityLabel={t('common.cancel')}
+                        >
                             <Text style={[styles.modalButtonText, { color: tc.secondaryText }]}>{t('common.cancel')}</Text>
                         </TouchableOpacity>
                     </View>

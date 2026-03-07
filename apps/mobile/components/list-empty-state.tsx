@@ -15,8 +15,18 @@ export function ListEmptyState({
   textColor,
 }: ListEmptyStateProps) {
   return (
-    <View style={[styles.container, { backgroundColor, borderColor }]}>
-      <Text style={[styles.text, { color: textColor }]}>{message}</Text>
+    <View
+      style={[styles.container, { backgroundColor, borderColor }]}
+      accessible
+      accessibilityLabel={message}
+    >
+      <Text
+        style={[styles.text, { color: textColor }]}
+        accessibilityRole="text"
+        accessibilityLiveRegion="polite"
+      >
+        {message}
+      </Text>
     </View>
   );
 }
