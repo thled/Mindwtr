@@ -10,6 +10,7 @@ import { useTheme } from '../../../contexts/theme-context';
 import { useLanguage } from '../../../contexts/language-context';
 import { TaskEditModal } from '@/components/task-edit-modal';
 import { PomodoroPanel } from '@/components/pomodoro-panel';
+import { orderFocusedTasksFirst } from '@/lib/focus-screen-utils';
 
 export default function FocusScreen() {
   const { taskId, openToken } = useLocalSearchParams<{ taskId?: string; openToken?: string }>();
@@ -106,7 +107,7 @@ export default function FocusScreen() {
       return !sequentialFirstTaskIds.has(task.id);
     };
 
-    const scheduleItems = tasks.filter((task) => {
+    const scheduleItems = orderFocusedTasksFirst(tasks.filter((task) => {
       if (task.deletedAt) return false;
       if (task.status === 'done' || task.status === 'reference') return false;
       if (isSequentialBlocked(task)) return false;
@@ -116,7 +117,7 @@ export default function FocusScreen() {
       return Boolean(task.isFocusedToday)
         || (startReady && Boolean(due && due <= endOfToday))
         || (startReady && Boolean(start && start <= endOfToday));
-    });
+    }));
 
     const scheduleIds = new Set(scheduleItems.map((task) => task.id));
 
