@@ -646,13 +646,25 @@ const readFileAsBytes = async (uri: string): Promise<Uint8Array> => {
       const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
       return base64ToBytes(base64);
     } catch (error) {
-      if (!StorageAccessFramework?.readAsStringAsync) {
+      const tempBaseDir = FileSystem.cacheDirectory || FileSystem.documentDirectory;
+      if (!tempBaseDir) {
         throw error;
       }
-      const base64 = await StorageAccessFramework.readAsStringAsync(uri, {
-        encoding: FileSystem.EncodingType.Base64,
-      });
-      return base64ToBytes(base64);
+      const normalizedBaseDir = tempBaseDir.endsWith('/') ? tempBaseDir : `${tempBaseDir}/`;
+      const tempUri = `${normalizedBaseDir}content-read-${Date.now()}-${Math.random().toString(16).slice(2, 8)}.bin`;
+      try {
+        // Generic Android content URIs (for example Downloads provider) cannot always be
+        // read directly by expo-file-system, but copyAsync can stage them locally first.
+        await FileSystem.copyAsync({ from: uri, to: tempUri });
+        const base64 = await FileSystem.readAsStringAsync(tempUri, { encoding: FileSystem.EncodingType.Base64 });
+        return base64ToBytes(base64);
+      } finally {
+        try {
+          await FileSystem.deleteAsync(tempUri, { idempotent: true });
+        } catch {
+          // Ignore temp cleanup failures.
+        }
+      }
     }
   }
   const base64 = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 });
