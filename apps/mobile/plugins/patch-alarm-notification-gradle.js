@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { withDangerousMod } = require('@expo/config-plugins');
+const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins');
 
 const applyGradleCompatPatch = (filePath) => {
   if (!fs.existsSync(filePath)) return false;
@@ -76,8 +76,117 @@ ${helperMarker}`
   return true;
 };
 
+const ensurePermission = (manifest, name) => {
+  if (!Array.isArray(manifest.manifest['uses-permission'])) {
+    manifest.manifest['uses-permission'] = [];
+  }
+  const permissions = manifest.manifest['uses-permission'];
+  const existing = permissions.find((permission) => permission?.$?.['android:name'] === name);
+  if (existing) return;
+  permissions.push({
+    $: {
+      'android:name': name,
+    },
+  });
+};
+
+const mergeIntentActions = (receiver, actions) => {
+  if (!actions.length) return;
+  if (!Array.isArray(receiver['intent-filter'])) {
+    receiver['intent-filter'] = [];
+  }
+  if (!receiver['intent-filter'][0]) {
+    receiver['intent-filter'][0] = {};
+  }
+  if (!Array.isArray(receiver['intent-filter'][0].action)) {
+    receiver['intent-filter'][0].action = [];
+  }
+  const existing = new Set(
+    receiver['intent-filter'][0].action
+      .map((action) => action?.$?.['android:name'])
+      .filter(Boolean)
+  );
+  actions.forEach((name) => {
+    if (existing.has(name)) return;
+    receiver['intent-filter'][0].action.push({
+      $: {
+        'android:name': name,
+      },
+    });
+  });
+};
+
+const ensureReceiver = (application, name, attrs, actions = []) => {
+  if (!Array.isArray(application.receiver)) {
+    application.receiver = [];
+  }
+  let receiver = application.receiver.find((entry) => entry?.$?.['android:name'] === name);
+  if (!receiver) {
+    receiver = {
+      $: {
+        'android:name': name,
+        ...attrs,
+      },
+    };
+    application.receiver.push(receiver);
+  } else {
+    receiver.$ = {
+      ...(receiver.$ || {}),
+      ...attrs,
+    };
+  }
+  mergeIntentActions(receiver, actions);
+};
+
 module.exports = function withAlarmNotificationGradlePatch(config) {
-  return withDangerousMod(config, [
+  const withManifestEntries = withAndroidManifest(config, (cfg) => {
+    const manifest = cfg.modResults;
+    const application = manifest.manifest.application?.[0];
+    if (!application) {
+      return cfg;
+    }
+
+    ensurePermission(manifest, 'android.permission.RECEIVE_BOOT_COMPLETED');
+
+    ensureReceiver(
+      application,
+      'com.emekalites.react.alarm.notification.AlarmReceiver',
+      {
+        'android:enabled': 'true',
+        'android:exported': 'true',
+      },
+      ['ACTION_DISMISS', 'ACTION_SNOOZE']
+    );
+
+    ensureReceiver(
+      application,
+      'com.emekalites.react.alarm.notification.AlarmDismissReceiver',
+      {
+        'android:enabled': 'true',
+        'android:exported': 'true',
+      }
+    );
+
+    ensureReceiver(
+      application,
+      'com.emekalites.react.alarm.notification.AlarmBootReceiver',
+      {
+        'android:directBootAware': 'true',
+        'android:enabled': 'false',
+        'android:exported': 'true',
+      },
+      [
+        'android.intent.action.BOOT_COMPLETED',
+        'android.intent.action.QUICKBOOT_POWERON',
+        'com.htc.intent.action.QUICKBOOT_POWERON',
+        'android.intent.action.LOCKED_BOOT_COMPLETED',
+      ]
+    );
+
+    return cfg;
+  });
+
+  return withDangerousMod(withManifestEntries, [
     'android',
     async (cfg) => {
       const projectRoot = cfg.modRequest.projectRoot;
