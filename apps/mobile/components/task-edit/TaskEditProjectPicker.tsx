@@ -8,21 +8,27 @@ import { logError } from '../../lib/app-log';
 interface TaskEditProjectPickerProps {
     visible: boolean;
     projects: Project[];
+    allProjects?: Project[];
     tc: ThemeColors;
     t: (key: string) => string;
     onClose: () => void;
     onSelectProject: (projectId?: string) => void;
     onCreateProject: (title: string) => Promise<Project | null>;
+    emptyLabel?: string;
+    noMatchesLabel?: string;
 }
 
 export function TaskEditProjectPicker({
     visible,
     projects,
+    allProjects,
     tc,
     t,
     onClose,
     onSelectProject,
     onCreateProject,
+    emptyLabel,
+    noMatchesLabel,
 }: TaskEditProjectPickerProps) {
     const [projectQuery, setProjectQuery] = useState('');
 
@@ -39,6 +45,15 @@ export function TaskEditProjectPicker({
                 return orderA - orderB;
             });
     }, [projects]);
+    const allActiveProjects = useMemo(() => {
+        return (allProjects ?? projects)
+            .filter((project) => !project.deletedAt)
+            .sort((a, b) => {
+                const orderA = Number.isFinite(a.order) ? a.order : 0;
+                const orderB = Number.isFinite(b.order) ? b.order : 0;
+                return orderA - orderB;
+            });
+    }, [allProjects, projects]);
 
     const normalizedProjectQuery = projectQuery.trim().toLowerCase();
     const filteredProjects = useMemo(() => {
@@ -50,14 +65,14 @@ export function TaskEditProjectPicker({
 
     const hasExactProjectMatch = useMemo(() => {
         if (!normalizedProjectQuery) return false;
-        return activeProjects.some((project) => project.title.toLowerCase() === normalizedProjectQuery);
-    }, [activeProjects, normalizedProjectQuery]);
+        return allActiveProjects.some((project) => project.title.toLowerCase() === normalizedProjectQuery);
+    }, [allActiveProjects, normalizedProjectQuery]);
 
     const handleCreateProject = async () => {
         const title = projectQuery.trim();
         if (!title) return;
         if (hasExactProjectMatch) {
-            const matched = activeProjects.find((project) => project.title.toLowerCase() === normalizedProjectQuery);
+            const matched = allActiveProjects.find((project) => project.title.toLowerCase() === normalizedProjectQuery);
             if (matched) {
                 onSelectProject(matched.id);
             }
@@ -128,6 +143,13 @@ export function TaskEditProjectPicker({
                                 <Text style={[styles.pickerItemText, { color: tc.text }]}>{project.title}</Text>
                             </Pressable>
                         ))}
+                        {filteredProjects.length === 0 && (
+                            <View style={styles.pickerItem}>
+                                <Text style={[styles.pickerItemText, { color: tc.secondaryText }]}>
+                                    {normalizedProjectQuery ? (noMatchesLabel ?? t('common.noMatches')) : (emptyLabel ?? noMatchesLabel ?? t('common.noMatches'))}
+                                </Text>
+                            </View>
+                        )}
                     </ScrollView>
                     <View style={styles.modalButtons}>
                         <TouchableOpacity onPress={onClose} style={styles.modalButton}>

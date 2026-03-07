@@ -368,9 +368,14 @@ export const TaskItem = memo(function TaskItem({
         if (!trimmed) return null;
         const existing = projects.find((project) => project.title.toLowerCase() === trimmed.toLowerCase());
         if (existing) return existing.id;
-        const created = await addProject(trimmed, DEFAULT_PROJECT_COLOR);
+        const initialAreaId = editAreaId || undefined;
+        const created = await addProject(
+            trimmed,
+            DEFAULT_PROJECT_COLOR,
+            initialAreaId ? { areaId: initialAreaId } : undefined
+        );
         return created?.id ?? null;
-    }, [addProject, projects]);
+    }, [addProject, editAreaId, projects]);
     const handleCreateArea = useCallback(async (name: string) => {
         const trimmed = name.trim();
         if (!trimmed) return null;
@@ -598,7 +603,12 @@ export const TaskItem = memo(function TaskItem({
         let resolvedProjectId = parsedProps.projectId || undefined;
         if (!resolvedProjectId && projectTitle) {
             try {
-                const created = await addProject(projectTitle, DEFAULT_PROJECT_COLOR);
+                const initialAreaId = editAreaId || undefined;
+                const created = await addProject(
+                    projectTitle,
+                    DEFAULT_PROJECT_COLOR,
+                    initialAreaId ? { areaId: initialAreaId } : undefined
+                );
                 resolvedProjectId = created?.id;
                 if (!resolvedProjectId) {
                     const projectCreateFailed = t('projects.createFailed');

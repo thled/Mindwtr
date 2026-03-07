@@ -1,6 +1,18 @@
 import { useState, useEffect, useRef, type FormEvent, type ReactNode } from 'react';
 import { Loader2, Sparkles } from 'lucide-react';
-import { hasTimeComponent, safeFormatDate, safeParseDate, resolveAutoTextDirection, type Area, type ClarifyResponse, type Project, type Section, type TaskEditorFieldId, type TimeEstimate } from '@mindwtr/core';
+import {
+    filterProjectsBySelectedArea,
+    hasTimeComponent,
+    safeFormatDate,
+    safeParseDate,
+    resolveAutoTextDirection,
+    type Area,
+    type ClarifyResponse,
+    type Project,
+    type Section,
+    type TaskEditorFieldId,
+    type TimeEstimate,
+} from '@mindwtr/core';
 import { AreaSelector } from '../ui/AreaSelector';
 import { ProjectSelector } from '../ui/ProjectSelector';
 import { SectionSelector } from '../ui/SectionSelector';
@@ -41,7 +53,7 @@ interface TaskItemEditorProps {
     setEditSectionId: (value: string) => void;
     editAreaId: string;
     setEditAreaId: (value: string) => void;
-    onCreateProject: (title: string) => Promise<string | null>;
+    onCreateProject: (title: string, areaId?: string) => Promise<string | null>;
     onCreateArea?: (name: string) => Promise<string | null>;
     onCreateSection?: (title: string) => Promise<string | null>;
     showProjectField: boolean;
@@ -159,6 +171,8 @@ export function TaskItemEditor({
         left.localeCompare(right, undefined, { numeric: true, sensitivity: 'base' });
     const sortedProjects = [...projects].sort((a, b) => compareLabels(a.title, b.title));
     const sortedAreas = [...areas].sort((a, b) => compareLabels(a.name, b.name));
+    const projectFilterAreaId = editAreaId || undefined;
+    const filteredProjects = filterProjectsBySelectedArea(sortedProjects, projectFilterAreaId);
     const [schedulingOpen, setSchedulingOpen] = useState(sectionCounts.scheduling > 0);
     const [organizationOpen, setOrganizationOpen] = useState(sectionCounts.organization > 0);
     const [detailsOpen, setDetailsOpen] = useState(
@@ -356,14 +370,16 @@ export function TaskItemEditor({
                     <div className="flex flex-col gap-1 flex-1 min-w-0">
                         <label className="text-xs text-muted-foreground font-medium">{t('projects.title')}</label>
                         <ProjectSelector
-                            projects={sortedProjects}
+                            projects={filteredProjects}
+                            allProjects={sortedProjects}
                             value={editProjectId}
                             onChange={setEditProjectId}
-                            onCreateProject={onCreateProject}
+                            onCreateProject={(title) => onCreateProject(title, projectFilterAreaId)}
                             placeholder={t('taskEdit.noProjectOption')}
                             noProjectLabel={t('taskEdit.noProjectOption')}
                             searchPlaceholder={t('projects.search')}
                             noMatchesLabel={t('common.noMatches')}
+                            emptyLabel={projectFilterAreaId ? t('projects.noProjectsInArea') : undefined}
                             createProjectLabel={t('projects.create')}
                             className="w-full"
                         />

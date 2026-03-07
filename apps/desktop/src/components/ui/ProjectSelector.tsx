@@ -6,6 +6,7 @@ import { useDropdownPosition } from './use-dropdown-position';
 
 interface ProjectSelectorProps {
     projects: Project[];
+    allProjects?: Project[];
     value: string;
     onChange: (projectId: string) => void;
     onCreateProject?: (title: string) => Promise<string | null>;
@@ -13,12 +14,14 @@ interface ProjectSelectorProps {
     noProjectLabel?: string;
     searchPlaceholder?: string;
     noMatchesLabel?: string;
+    emptyLabel?: string;
     createProjectLabel?: string;
     className?: string;
 }
 
 export function ProjectSelector({
     projects,
+    allProjects,
     value,
     onChange,
     onCreateProject,
@@ -26,6 +29,7 @@ export function ProjectSelector({
     noProjectLabel = 'No project',
     searchPlaceholder = 'Search projects',
     noMatchesLabel = 'No matches',
+    emptyLabel,
     createProjectLabel = 'Create project',
     className,
 }: ProjectSelectorProps) {
@@ -33,7 +37,8 @@ export function ProjectSelector({
     const [query, setQuery] = useState('');
     const containerRef = useRef<HTMLDivElement>(null);
     const dropdownRef = useRef<HTMLDivElement>(null);
-    const selected = projects.find((p) => p.id === value);
+    const projectPool = allProjects ?? projects;
+    const selected = projectPool.find((p) => p.id === value);
     const { dropdownClassName, listMaxHeight } = useDropdownPosition({
         open,
         containerRef,
@@ -48,8 +53,8 @@ export function ProjectSelector({
 
     const hasExactMatch = useMemo(() => {
         if (!normalizedQuery) return false;
-        return projects.some((project) => project.title.toLowerCase() === normalizedQuery);
-    }, [projects, normalizedQuery]);
+        return projectPool.some((project) => project.title.toLowerCase() === normalizedQuery);
+    }, [normalizedQuery, projectPool]);
 
     useEffect(() => {
         if (!open) return;
@@ -107,6 +112,8 @@ export function ProjectSelector({
         }
         closeDropdown();
     };
+
+    const emptyStateLabel = normalizedQuery ? noMatchesLabel : (emptyLabel ?? noMatchesLabel);
 
     return (
         <div ref={containerRef} className={cn('relative', className)}>
@@ -191,7 +198,7 @@ export function ProjectSelector({
                                 </button>
                             ))}
                             {filtered.length === 0 && (
-                                <div className="px-2 py-1 text-muted-foreground">{noMatchesLabel}</div>
+                                <div className="px-2 py-1 text-muted-foreground">{emptyStateLabel}</div>
                             )}
                         </div>
                     </div>

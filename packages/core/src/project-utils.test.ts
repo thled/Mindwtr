@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { projectHasNextAction, filterProjectsNeedingNextAction, getProjectsByArea, getProjectsByTag } from './project-utils';
+import {
+    projectHasNextAction,
+    filterProjectsNeedingNextAction,
+    filterProjectsBySelectedArea,
+    getProjectsByArea,
+    getProjectsByTag,
+} from './project-utils';
 import type { Project, Task } from './types';
 
 describe('project-utils', () => {
@@ -8,6 +14,7 @@ describe('project-utils', () => {
         { id: 'p2', title: 'Beta', status: 'active', tagIds: [], areaId: 'a1', createdAt: '', updatedAt: '' },
         { id: 'p3', title: 'Gamma', status: 'someday', tagIds: ['t1'], areaId: 'a2', createdAt: '', updatedAt: '' },
         { id: 'p4', title: 'Delta', status: 'active', tagIds: ['t2'], createdAt: '', updatedAt: '' },
+        { id: 'p5', title: 'Hidden', status: 'active', tagIds: [], areaId: 'a1', deletedAt: '2026-03-07T00:00:00.000Z', createdAt: '', updatedAt: '' },
     ];
 
     const tasks: Task[] = [
@@ -28,6 +35,11 @@ describe('project-utils', () => {
     it('filters projects by area', () => {
         const areaProjects = getProjectsByArea(projects, 'a1');
         expect(areaProjects.map((p) => p.id)).toEqual(['p1', 'p2']);
+    });
+
+    it('filters project picker choices by selected area', () => {
+        expect(filterProjectsBySelectedArea(projects).map((p) => p.id)).toEqual(['p1', 'p2', 'p3', 'p4']);
+        expect(filterProjectsBySelectedArea(projects, 'a1').map((p) => p.id)).toEqual(['p1', 'p2']);
     });
 
     it('filters projects by tag', () => {

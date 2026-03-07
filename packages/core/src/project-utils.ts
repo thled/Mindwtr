@@ -32,6 +32,14 @@ export function getProjectsByArea(projects: Project[], areaId: string): Project[
         .sort((a, b) => a.title.localeCompare(b.title));
 }
 
+export function filterProjectsBySelectedArea(projects: Project[], selectedAreaId?: string): Project[] {
+    return projects.filter((project) => {
+        if (project.deletedAt) return false;
+        if (!selectedAreaId) return true;
+        return project.areaId === selectedAreaId;
+    });
+}
+
 export const getProjectsByTag = (projects: Project[], tagId: string): Project[] => {
     return projects
         .filter(p => !p.deletedAt && (p.tagIds || []).includes(tagId))

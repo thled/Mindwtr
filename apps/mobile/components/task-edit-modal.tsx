@@ -33,6 +33,7 @@ import {
     DEFAULT_PROJECT_COLOR,
     getLocalizedWeekdayButtons,
     getLocalizedWeekdayLabels,
+    filterProjectsBySelectedArea,
 } from '@mindwtr/core';
 import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import * as DocumentPicker from 'expo-document-picker';
@@ -404,6 +405,14 @@ function TaskEditModalInner({ visible, task, onClose, onSave, onFocusMode, defau
     }, [editedTask.projectId, projects, task?.id, task?.projectId, tasks]);
 
     const activeProjectId = editedTask.projectId ?? task?.projectId;
+    const projectFilterAreaId =
+        typeof editedTask.areaId === 'string' && editedTask.areaId.trim().length > 0
+            ? editedTask.areaId
+            : undefined;
+    const filteredProjectsForPicker = useMemo(
+        () => filterProjectsBySelectedArea(projects, projectFilterAreaId),
+        [projectFilterAreaId, projects]
+    );
 
     useEffect(() => {
         const projectId = editedTask.projectId ?? task?.projectId;
@@ -446,7 +455,11 @@ function TaskEditModalInner({ visible, task, onClose, onSave, onFocusMode, defau
         let resolvedProjectId = parsedProps.projectId;
         if (!resolvedProjectId && projectTitle) {
             try {
-                const created = await addProject(projectTitle, DEFAULT_PROJECT_COLOR);
+                const created = await addProject(
+                    projectTitle,
+                    DEFAULT_PROJECT_COLOR,
+                    projectFilterAreaId ? { areaId: projectFilterAreaId } : undefined
+                );
                 resolvedProjectId = created?.id;
             } catch (error) {
                 logTaskError('Failed to create project from quick add', error);
@@ -2788,7 +2801,8 @@ function TaskEditModalInner({ visible, task, onClose, onSave, onFocusMode, defau
 
                 <TaskEditProjectPicker
                     visible={showProjectPicker}
-                    projects={projects}
+                    projects={filteredProjectsForPicker}
+                    allProjects={projects}
                     tc={tc}
                     t={t}
                     onClose={() => setShowProjectPicker(false)}
@@ -2800,7 +2814,13 @@ function TaskEditModalInner({ visible, task, onClose, onSave, onFocusMode, defau
                             sectionId: projectId && prev.projectId === projectId ? prev.sectionId : undefined,
                         }));
                     }}
-                    onCreateProject={(title) => addProject(title, DEFAULT_PROJECT_COLOR)}
+                    onCreateProject={(title) => addProject(
+                        title,
+                        DEFAULT_PROJECT_COLOR,
+                        projectFilterAreaId ? { areaId: projectFilterAreaId } : undefined
+                    )}
+                    emptyLabel={projectFilterAreaId ? t('projects.noProjectsInArea') : undefined}
+                    noMatchesLabel={t('common.noMatches')}
                 />
 
                 <TaskEditSectionPicker
