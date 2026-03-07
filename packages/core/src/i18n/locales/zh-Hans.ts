@@ -194,6 +194,7 @@ export const zhHans: Record<string, string> = {
         'task.hoverHint': '点击展开详情 · 双击编辑',
         'task.select': '选择任务',
         'task.aria.delete': '删除任务',
+        'task.deleteConfirmBody': '将此任务移到垃圾桶？',
         'task.aria.status': '任务状态',
         'task.aria.description': '任务描述',
         'task.aria.startDate': '开始日期',

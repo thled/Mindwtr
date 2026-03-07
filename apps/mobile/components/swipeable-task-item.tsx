@@ -2,7 +2,7 @@ import { View, Text, Pressable, StyleSheet, Modal, Alert } from 'react-native';
 import { Swipeable } from 'react-native-gesture-handler';
 import { useTaskStore, Task, getChecklistProgress, getTaskAgeLabel, getTaskStaleness, getStatusColor, hasTimeComponent, safeFormatDate, safeParseDueDate, TaskStatus, Project, resolveTaskTextDirection } from '@mindwtr/core';
 import { useLanguage } from '../contexts/language-context';
-import { useRef, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
+import React, { useRef, useState, useEffect, useMemo, useCallback, type ReactNode } from 'react';
 import { ArrowRight, Check, RotateCcw, Trash2 } from 'lucide-react-native';
 import { ThemeColors } from '../hooks/use-theme-colors';
 
@@ -270,9 +270,9 @@ export function SwipeableTaskItem({
             style={styles.swipeActionRight}
             onPress={() => {
                 swipeableRef.current?.close();
-                onDelete();
+                confirmDelete();
             }}
-            accessibilityLabel="Delete task"
+            accessibilityLabel={t('task.aria.delete') || 'Delete task'}
             accessibilityRole="button"
         >
             <Trash2 size={20} color="#FFFFFF" />
@@ -297,6 +297,18 @@ export function SwipeableTaskItem({
             return;
         }
         onPress();
+    };
+
+    const confirmDelete = () => {
+        Alert.alert(
+            task.title,
+            t('task.deleteConfirmBody') || 'Move this task to Trash?',
+            [
+                { text: t('common.cancel') || 'Cancel', style: 'cancel' },
+                { text: t('common.delete') || 'Delete', style: 'destructive', onPress: onDelete },
+            ],
+            { cancelable: true }
+        );
     };
 
     const handleLongPress = () => {
@@ -331,7 +343,7 @@ export function SwipeableTaskItem({
             return;
         }
         if (actionName === 'delete') {
-            onDelete();
+            confirmDelete();
         }
     };
 

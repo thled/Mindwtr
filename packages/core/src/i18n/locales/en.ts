@@ -219,6 +219,7 @@ export const en: Record<string, string> = {
         'task.hoverHint': 'Click to toggle details / Double-click to edit',
         'task.select': 'Select task',
         'task.aria.delete': 'Delete task',
+        'task.deleteConfirmBody': 'Move this task to Trash?',
         'task.aria.status': 'Task status',
         'task.aria.description': 'Task description',
         'task.aria.startDate': 'Start date',
