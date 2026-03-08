@@ -46,6 +46,41 @@ export const getInitialWindowWidth = (): number => {
     return Number.isFinite(width) && width > 0 ? Math.round(width) : 1;
 };
 
+export const getTaskEditTabOffset = (mode: 'task' | 'view', containerWidth: number): number =>
+    mode === 'task' ? 0 : containerWidth;
+
+type ScrollValueLike = {
+    setValue?: (value: number) => void;
+};
+
+type ScrollNodeLike = {
+    scrollTo?: (options: { x: number; animated?: boolean }) => void;
+    getNode?: () => ScrollNodeLike | null | undefined;
+} | null | undefined;
+
+export const syncTaskEditPagerPosition = ({
+    mode,
+    containerWidth,
+    scrollValue,
+    scrollNode,
+    animated = true,
+}: {
+    mode: 'task' | 'view';
+    containerWidth: number;
+    scrollValue?: ScrollValueLike | null;
+    scrollNode?: ScrollNodeLike;
+    animated?: boolean;
+}): void => {
+    if (!containerWidth) return;
+    const x = getTaskEditTabOffset(mode, containerWidth);
+    scrollValue?.setValue?.(x);
+    if (scrollNode?.scrollTo) {
+        scrollNode.scrollTo({ x, animated });
+        return;
+    }
+    scrollNode?.getNode?.()?.scrollTo?.({ x, animated });
+};
+
 export const DEFAULT_TASK_EDITOR_ORDER: TaskEditorFieldId[] = [
     'status',
     'project',

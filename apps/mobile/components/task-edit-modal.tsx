@@ -75,11 +75,13 @@ import {
     DEFAULT_TASK_EDITOR_ORDER,
     DEFAULT_TASK_EDITOR_VISIBLE,
     getInitialWindowWidth,
+    getTaskEditTabOffset,
     isReleasedAudioPlayerError,
     isValidLinkUri,
     logTaskError,
     logTaskWarn,
     STATUS_OPTIONS,
+    syncTaskEditPagerPosition,
 } from './task-edit/task-edit-modal.utils';
 import {
     applyMarkdownChecklistToTask,
@@ -1440,18 +1442,18 @@ function TaskEditModalInner({ visible, task, onClose, onSave, onFocusMode, defau
     const lastFocusedInputRef = useRef<number | string | undefined>(undefined);
 
     const scrollToTab = useCallback((mode: TaskEditTab, animated = true) => {
-        if (!containerWidth) return;
-        const x = mode === 'task' ? 0 : containerWidth;
         const node = scrollRef.current as unknown as {
             scrollTo?: (options: { x: number; animated?: boolean }) => void;
             getNode?: () => { scrollTo?: (options: { x: number; animated?: boolean }) => void };
         } | null;
-        if (node?.scrollTo) {
-            node.scrollTo({ x, animated });
-            return;
-        }
-        node?.getNode?.()?.scrollTo?.({ x, animated });
-    }, [containerWidth]);
+        syncTaskEditPagerPosition({
+            mode,
+            containerWidth,
+            scrollValue: scrollX,
+            scrollNode: node,
+            animated,
+        });
+    }, [containerWidth, scrollX]);
     const alignPagerToActiveTab = useCallback(() => {
         if (!visible || !containerWidth) return;
         requestAnimationFrame(() => {
@@ -2564,7 +2566,7 @@ function TaskEditModalInner({ visible, task, onClose, onSave, onFocusMode, defau
                             const offsetX = event.nativeEvent.contentOffset.x;
                             const target = offsetX >= containerWidth * 0.5 ? 'view' : 'task';
                             setModeTab(target);
-                            const targetX = target === 'task' ? 0 : containerWidth;
+                            const targetX = getTaskEditTabOffset(target, containerWidth);
                             if (Math.abs(offsetX - targetX) > 1) {
                                 scrollToTab(target, false);
                             }
